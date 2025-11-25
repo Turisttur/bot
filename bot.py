@@ -77,8 +77,10 @@ def get_times_kb(date_str):
         return None
     start, end = hours
     slots = []
-    current = datetime.combine(day.date(), start)
-    while current < datetime.combine(day.date(), end):
+    # ✅ Сделать current aware:
+    current = TIMEZONE.localize(datetime.combine(day.date(), start))
+    end_dt = TIMEZONE.localize(datetime.combine(day.date(), end))
+    while current < end_dt:
         if (current - datetime.now(TIMEZONE)).total_seconds() > 1800:
             slots.append(current.strftime("%H:%M"))
         current += timedelta(minutes=60)
