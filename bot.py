@@ -1,5 +1,4 @@
-
-# 📁 bot.py — исправленная версия (для aiogram >=3.10)
+# bot.py — ASEM PODO Telegram Bot (aiogram 3.22.0, Python 3.11)
 import asyncio
 import logging
 from datetime import datetime, timedelta, time
@@ -11,13 +10,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# 🔑 === ВСТАВЬТЕ СВОИ ДАННЫЕ ===
-BOT_TOKEN = "8454009227:AAEV5eAl8L3pxUC_JQa6FI8dsJAZ2yHtdQc"  # ← замените
-ADMIN_CHAT_ID = 6734540756  # ← замените
-# ==============================
+# 🔑 Настройки — замените на свои
+BOT_TOKEN = "8454009227:AAEV5eAl8L3pxUC_JQa6FI8dsJAZ2yHtdQc"   # ← ЗАМЕНИТЕ НА СВОЙ ТОКЕН от @BotFather
+ADMIN_CHAT_ID = 6734540756                                        # ← ЗАМЕНИТЕ НА ВАШ Telegram ID (узнать у @userinfobot)
 
 TIMEZONE = pytz.timezone("Asia/Almaty")
-
 WORKING_HOURS = {
     "mon": (time(10, 0), time(20, 0)),
     "tue": (time(10, 0), time(20, 0)),
@@ -28,67 +25,12 @@ WORKING_HOURS = {
     "sun": None
 }
 
-TRANSLATIONS = {
-    "ru": {
-        "start": "🌸 Добро пожаловать в ASEM PODO @ BEAUTY!\n\nВыберите действие:",
-        "book": "📅 Записаться",
-        "contact": "📞 Контакты",
-        "lang": "ҚҚ",
-        "back": "⬅️ Назад",
-        "service_select": "Выберите услугу:",
-        "name_prompt": "Введите ваше имя:",
-        "phone_prompt": "Введите ваш телефон:",
-        "choose_day": "Выберите день:",
-        "choose_time": "Выберите время:",
-        "confirmed": "✅ Запись подтверждена!\n\n📅 {date}\n⏰ {time}\n💅 {service}\n📍 Аягоз, ул. Актамберды, 23\n\nСпасибо, что выбираете нас! 🫶",
-        "admin_new": "🆕 Новая запись!\n👤 {name}\n📱 {phone}\n📅 {date}\n⏰ {time}\n💅 {service}"
-    },
-    "kk": {
-        "start": "🌸 ASEM PODO @ BEAUTY-ға қош келдіңіз!\n\nӘрекетті таңдаңыз:",
-        "book": "📅 Кезекке жазылу",
-        "contact": "📞 Байланыс",
-        "lang": "РУ",
-        "back": "⬅️ Артқа",
-        "service_select": "Қызметті таңдаңыз:",
-        "name_prompt": "Атыңызды енгізіңіз:",
-        "phone_prompt": "Телефон номеріңізді енгізіңіз:",
-        "choose_day": "Күнді таңдаңыз:",
-        "choose_time": "Уақытты таңдаңыз:",
-        "confirmed": "✅ Тіркелу расталды!\n\n📅 {date}\n⏰ {time}\n💅 {service}\n📍 Аяғоз, Актамберды к-сі, 23\n\nБізді таңдағаныңызға рахмет! 🫶",
-        "admin_new": "🆕 Жаңа тіркелу!\n👤 {name}\n📱 {phone}\n📅 {date}\n⏰ {time}\n💅 {service}"
-    }
-}
-
-SERVICES = [
-    ("Медицинская подология", "Медициналық подология"),
-    ("Эстетический маникюр", "Эстетикалық маникюр"),
-    ("Педикюр премиум", "Педикюр премиум"),
-    ("Визаж", "Макияж")
-]
-
-# === FSM States ===
 class Booking(StatesGroup):
     choosing_service = State()
     entering_name = State()
     entering_phone = State()
     choosing_day = State()
     choosing_time = State()
-
-# === Вспомогательные функции ===
-def get_lang(msg) -> str:
-    return msg.from_user.language_code[:2] if msg.from_user.language_code else "ru"
-
-def _(key: str, lang: str) -> str:
-    return TRANSLATIONS.get(lang, TRANSLATIONS["ru"]).get(key, key)
-
-def get_main_menu(lang: str):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=_("book", lang), callback_data="book")],
-            [InlineKeyboardButton(text=_("contact", lang), callback_data="contact")],
-            [InlineKeyboardButton(text=_("lang", lang), callback_data=f"switch_lang_{lang}")]
-        ]
-    )
 
 def get_days_kb():
     now = datetime.now(TIMEZONE)
@@ -97,14 +39,12 @@ def get_days_kb():
         day = now + timedelta(days=i)
         wd = day.strftime("%a").lower()[:3]
         if WORKING_HOURS[wd]:
-            text = day.strftime("%d %b")
-            if i == 0: text = "Сегодня"
-            elif i == 1: text = "Завтра"
+            text = "Сегодня" if i == 0 else "Завтра" if i == 1 else day.strftime("%d %b")
             buttons.append([InlineKeyboardButton(text=text, callback_data=f"day_{day.strftime('%Y-%m-%d')}")])
-    buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="main")])
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="main")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def get_times_kb(date_str: str):
+def get_times_kb(date_str):
     day = datetime.strptime(date_str, "%Y-%m-%d")
     wd = day.strftime("%a").lower()[:3]
     hours = WORKING_HOURS[wd]
@@ -119,36 +59,36 @@ def get_times_kb(date_str: str):
         current += timedelta(minutes=60)
     if not slots:
         return None
-    buttons = [[InlineKeyboardButton(t, callback_data=f"time_{t}")] for t in slots]
-    buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="choose_day")])
+    buttons = [[InlineKeyboardButton(text=t, callback_data=f"time_{t}")] for t in slots]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="choose_day")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-# === Инициализация ===
 bot = Bot(token=BOT_TOKEN)
-storage = MemoryStorage()
-dp = Dispatcher(storage=storage)
-
-# === ХЕНДЛЕРЫ ===
+dp = Dispatcher(storage=MemoryStorage())
 
 @dp.message(Command("start"))
-async def cmd_start(msg: Message, state: FSMContext):
-    lang = get_lang(msg)
-    await state.set_state(None)  # сброс состояния
-    await msg.answer(_("start", lang), reply_markup=get_main_menu(lang))
+async def start(msg: Message, state: FSMContext):
+    await state.clear()
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📅 Записаться", callback_data="book")],
+        [InlineKeyboardButton(text="📞 Контакты", callback_data="contact")]
+    ])
+    await msg.answer("🌸 Добро пожаловать в ASEM PODO @ BEAUTY!", reply_markup=kb)
 
 @dp.callback_query(F.data == "main")
-async def back_to_main(cb: CallbackQuery, state: FSMContext):
-    lang = get_lang(cb.message)
-    await state.set_state(None)
-    await cb.message.edit_text(_("start", lang), reply_markup=get_main_menu(lang))
+async def main_menu(cb: CallbackQuery, state: FSMContext):
+    await start(cb.message, state)
 
 @dp.callback_query(F.data == "book")
-async def book_start(cb: CallbackQuery, state: FSMContext):
+async def book(cb: CallbackQuery, state: FSMContext):
     await state.set_state(Booking.choosing_service)
     buttons = [
-        [InlineKeyboardButton(ru, callback_data=f"srv_{ru}")] for ru, _ in SERVICES
+        [InlineKeyboardButton(text="Медицинская подология", callback_data="srv_Медподология")],
+        [InlineKeyboardButton(text="Эстетический маникюр", callback_data="srv_Маникюр")],
+        [InlineKeyboardButton(text="Педикюр премиум", callback_data="srv_Педикюр")],
+        [InlineKeyboardButton(text="Визаж", callback_data="srv_Визаж")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main")]
     ]
-    buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="main")])
     await cb.message.edit_text("Выберите услугу:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 @dp.callback_query(F.data.startswith("srv_"))
@@ -176,10 +116,10 @@ async def day(cb: CallbackQuery, state: FSMContext):
     await state.update_data(date=date)
     await state.set_state(Booking.choosing_time)
     kb = get_times_kb(date)
-    if not kb:
-        await cb.answer("Нет свободного времени", show_alert=True)
-        return
-    await cb.message.edit_text("Выберите время:", reply_markup=kb)
+    if kb:
+        await cb.message.edit_text("Выберите время:", reply_markup=kb)
+    else:
+        await cb.answer("Нет свободного времени в этот день.", show_alert=True)
 
 @dp.callback_query(F.data.startswith("time_"))
 async def time(cb: CallbackQuery, state: FSMContext):
@@ -188,23 +128,13 @@ async def time(cb: CallbackQuery, state: FSMContext):
     date_obj = datetime.strptime(data["date"], "%Y-%m-%d")
     date_fmt = date_obj.strftime("%d.%m")
     
-    # Клиенту
     await cb.message.edit_text(
-        _("confirmed", get_lang(cb.message)).format(
-            date=date_fmt, time=tm, service=data["service"]
-        )
+        f"✅ Запись подтверждена!\n\n📅 {date_fmt}\n⏰ {tm}\n💅 {data['service']}\n📍 Аягоз, ул. Актамберды, 23"
     )
     
-    # Админу
     await bot.send_message(
         ADMIN_CHAT_ID,
-        _("admin_new", "ru").format(
-            name=data["name"],
-            phone=data["phone"],
-            date=date_fmt,
-            time=tm,
-            service=data["service"]
-        )
+        f"🆕 Новая запись!\n👤 {data['name']}\n📱 {data['phone']}\n📅 {date_fmt}\n⏰ {tm}\n💅 {data['service']}"
     )
     await state.clear()
 
@@ -213,25 +143,23 @@ async def contact(cb: CallbackQuery):
     text = (
         "📍 *Аягоз, ул. Актамберды, 23*\n"
         "🕒 *Пн–Пт:* 10:00–20:00\n"
+        "🕒 *Сб:* 10:00–18:00\n"
         "📱 +7 777 123 45 67\n"
         "🌐 [asem-podo.pages.dev](https://asem-podo.pages.dev)"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("💬 WhatsApp", url="https://wa.me/77771234567")],
-        [InlineKeyboardButton("⬅️ Назад", callback_data="main")]
+        [InlineKeyboardButton(text="💬 WhatsApp", url="https://wa.me/77771234567")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="main")]
     ])
     await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
 
-@dp.callback_query(F.data.startswith("switch_lang_"))
-async def switch_lang(cb: CallbackQuery, state: FSMContext):
-    lang = "kk" if cb.data.endswith("ru") else "ru"
-    await cb.message.edit_text(_("start", lang), reply_markup=get_main_menu(lang))
-
-# === Главный запуск ===
 async def main():
     logging.basicConfig(level=logging.INFO)
     print("✅ Бот запущен. Ожидаю сообщения...")
-    await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
+    await dp.start_polling(
+        bot,
+        allowed_updates=["message", "callback_query"]
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
