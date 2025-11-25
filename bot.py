@@ -14,8 +14,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
 # 🔑 Настройки
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8454009227:AAHP3Q1HArGgcr519se0Qye4x7eQp4-cjZ4")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "6734540756"))
+BOT_TOKEN = "8454009227:AAHP3Q1HArGgcr519se0Qye4x7eQp4-cjZ4"
+ADMIN_CHAT_ID = 6734540756
 
 # === HTTP сервер для Render (порт 10000) ===
 class HealthCheckHandler(BaseHTTPRequestHandler):
