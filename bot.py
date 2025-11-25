@@ -30,9 +30,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/healthz":
             self.send_response(200)
-            self.send_header("Content-type", "text/plain")
+            self.send_header("Content-type", "application/json")
             self.end_headers()
-            self.wfile.write(b"OK")
+            self.wfile.write(b'{"status":"ok","bot":"running"}')
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def do_HEAD(self):  # ← добавьте этот метод
+        if self.path == "/healthz":
+            self.send_response(200)
+            self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
