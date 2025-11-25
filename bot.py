@@ -1,6 +1,9 @@
-# bot.py — ASEM PODO Telegram Bot (aiogram 3.22.0, Python 3.11)
+# bot.py — для Render Free Web Service (порт 10000)
 import asyncio
 import logging
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timedelta, time
 import pytz
 from aiogram import Bot, Dispatcher, F
@@ -10,10 +13,32 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# 🔑 Настройки — замените на свои
-BOT_TOKEN = "8454009227:AAEV5eAl8L3pxUC_JQa6FI8dsJAZ2yHtdQc"   # ← ЗАМЕНИТЕ НА СВОЙ ТОКЕН от @BotFather
-ADMIN_CHAT_ID = 6734540756                                        # ← ЗАМЕНИТЕ НА ВАШ Telegram ID (узнать у @userinfobot)
+# 🔑 Настройки
+BOT_TOKEN = os.getenv("BOT_TOKEN", "1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ123456789")
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "123456789"))
 
+# === HTTP сервер для Render (порт 10000) ===
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/healthz":
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"OK")
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+def run_http_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+# Запускаем HTTP-сервер в фоновом потоке
+threading.Thread(target=run_http_server, daemon=True).start()
+print(f"✅ HTTP health server running on port {os.getenv('PORT', 10000)}")
+
+# === Основной бот (aiogram polling) ===
 TIMEZONE = pytz.timezone("Asia/Almaty")
 WORKING_HOURS = {
     "mon": (time(10, 0), time(20, 0)),
@@ -155,11 +180,8 @@ async def contact(cb: CallbackQuery):
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    print("✅ Бот запущен. Ожидаю сообщения...")
-    await dp.start_polling(
-        bot,
-        allowed_updates=["message", "callback_query"]
-    )
+    print("✅ Telegram bot started. Polling...")
+    await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
 
 if __name__ == "__main__":
     asyncio.run(main())
