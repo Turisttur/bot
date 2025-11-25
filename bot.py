@@ -12,6 +12,14 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+import os
+import sys
+
+# ✅ Гарантируем единственный запуск
+if "RUNNING" in os.environ:
+    print("🔁 Бот уже запущен — выход.")
+    sys.exit(0)
+os.environ["RUNNING"] = "1"
 
 # 🔑 Настройки
 BOT_TOKEN = "8454009227:AAHP3Q1HArGgcr519se0Qye4x7eQp4-cjZ4"
@@ -150,21 +158,34 @@ async def day(cb: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("time_"))
 async def time(cb: CallbackQuery, state: FSMContext):
-    tm = cb.data[5:]
     data = await state.get_data()
-    date_obj = datetime.strptime(data["date"], "%Y-%m-%d")
-    date_fmt = date_obj.strftime("%d.%m")
     
+    # ✅ Защита от KeyError
+    service = data.get("service", "Не указана")
+    name = data.get("name", "—")
+    phone = data.get("phone", "—")
+    date_str = data.get("date")
+    
+    if not date_str:
+        await cb.message.edit_text("❌ Сессия устарела. Начните заново: /start")
+        await state.clear()
+        return
+
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    date_fmt = date_obj.strftime("%d.%m")
+    tm = cb.data[5:]
+
+    # Ответ клиенту
     await cb.message.edit_text(
-        f"✅ Запись подтверждена!\n\n📅 {date_fmt}\n⏰ {tm}\n💅 {data['service']}\n📍 Аягоз, ул. Актамберды, 23"
+        f"✅ Запись подтверждена!\n\n📅 {date_fmt}\n⏰ {tm}\n💅 {service}\n📍 Аягоз, ул. Актамберды, 23"
     )
     
+    # Уведомление админу
     await bot.send_message(
         ADMIN_CHAT_ID,
-        f"🆕 Новая запись!\n👤 {data['name']}\n📱 {data['phone']}\n📅 {date_fmt}\n⏰ {tm}\n💅 {data['service']}"
+        f"🆕 Новая запись!\n👤 {name}\n📱 {phone}\n📅 {date_fmt}\n⏰ {tm}\n💅 {service}"
     )
     await state.clear()
-
 @dp.callback_query(F.data == "contact")
 async def contact(cb: CallbackQuery):
     text = (
