@@ -164,7 +164,29 @@ async def day(cb: CallbackQuery, state: FSMContext):
     else:
         await cb.answer("Нет свободного времени в этот день.", show_alert=True)
 
+import aiohttp
+
+CALENDAR_WEBHOOK = "https://script.google.com/macros/s/AKfycbwYowZ-08UQL1Dh0HorTcBB9liso9l64eiuplqPqspwX66YCXMR8DLQWNhVcjNoTB0p/exec"  # ← ваш URL
+
 @dp.callback_query(F.data.startswith("time_"))
+if CALENDAR_WEBHOOK:
+    try:
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "name": name,
+                "phone": phone,
+                "date": date_str,
+                "time": tm,
+                "service": service
+            }
+            async with session.post(CALENDAR_WEBHOOK, json=payload) as resp:
+                result = await resp.json()
+                if result.get("status") == "ok":
+                    print("✅ Событие создано в Google Calendar")
+                else:
+                    print(f"⚠️ Ошибка: {result.get('message')}")
+    except Exception as e:
+        print(f"⚠️ Webhook error: {e}")
 async def time(cb: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     
