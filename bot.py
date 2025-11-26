@@ -49,11 +49,11 @@ print(f"✅ HTTP health server running on port {os.getenv('PORT', 10000)}")
 
 # === Google Form настройки ===
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfA9agctAXbg3897M0N2aSGAy1BQOBc8zUJuNtuXj_JMUvHUw/formResponse"
-ENTRY_NAME = "entry.132870387"
-ENTRY_PHONE = "entry.575255472"
-ENTRY_DATE = "entry.1710731650"
-ENTRY_TIME = "entry.1012362732"
-ENTRY_SERVICE = "entry.1464244049"
+ENTRY_NAME = "entry.929095536"
+ENTRY_PHONE = "entry.1802722855"
+ENTRY_DATE = "entry.1964769702"
+ENTRY_TIME = "entry.1869005656"
+ENTRY_SERVICE = "entry.1966683913"
 
 async def send_to_google_form(name, phone, date_str, time_str, service):
     try:
