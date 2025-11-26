@@ -16,7 +16,7 @@ import os
 import sys
 import aiohttp
 
-CALENDAR_WEBHOOK = "https://script.google.com/macros/s/AKfycbwYowZ-08UQL1Dh0HorTcBB9liso9l64eiuplqPqspwX66YCXMR8DLQWNhVcjNoTB0p/exec"  # ← ваш URL
+CALENDAR_WEBHOOK = "https://script.google.com/macros/s/AKfycbySa51mH3IlUHtuDaQBnPHvzd-ro0ASPMA7uOcfFGpx4_QOcpXdHLZt9ONpK97k-I5B/exec"  # ← ваш URL
 
 
 
