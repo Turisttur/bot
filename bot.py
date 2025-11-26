@@ -14,6 +14,12 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 import os
 import sys
+import aiohttp
+
+CALENDAR_WEBHOOK = "https://script.google.com/macros/s/AKfycbwYowZ-08UQL1Dh0HorTcBB9liso9l64eiuplqPqspwX66YCXMR8DLQWNhVcjNoTB0p/exec"  # ← ваш URL
+
+
+
 
 # ✅ Гарантируем единственный запуск
 if "RUNNING" in os.environ:
@@ -164,53 +170,55 @@ async def day(cb: CallbackQuery, state: FSMContext):
     else:
         await cb.answer("Нет свободного времени в этот день.", show_alert=True)
 
-import aiohttp
-
-CALENDAR_WEBHOOK = "https://script.google.com/macros/s/AKfycbwYowZ-08UQL1Dh0HorTcBB9liso9l64eiuplqPqspwX66YCXMR8DLQWNhVcjNoTB0p/exec"  # ← ваш URL
-
 @dp.callback_query(F.data.startswith("time_"))
-if CALENDAR_WEBHOOK:
-    try:
-        async with aiohttp.ClientSession() as session:
-            payload = {
-                "name": name,
-                "phone": phone,
-                "date": date_str,
-                "time": tm,
-                "service": service
-            }
-            async with session.post(CALENDAR_WEBHOOK, json=payload) as resp:
-                result = await resp.json()
-                if result.get("status") == "ok":
-                    print("✅ Событие создано в Google Calendar")
-                else:
-                    print(f"⚠️ Ошибка: {result.get('message')}")
-    except Exception as e:
-        print(f"⚠️ Webhook error: {e}")
 async def time(cb: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    
-    # ✅ Защита от KeyError
-    service = data.get("service", "Не указана")
+    if not 
+        await cb.message.answer("⚠️ Сессия устарела. Начните с /start.")
+        await state.clear()
+        return
+
+    # --- Получение данных ---
+    service = data.get("service", "не указана")
     name = data.get("name", "—")
     phone = data.get("phone", "—")
     date_str = data.get("date")
-    
+    tm = cb.data[5:]
+
     if not date_str:
-        await cb.message.edit_text("❌ Сессия устарела. Начните заново: /start")
+        await cb.message.answer("❌ Не указана дата. Начните с /start.")
         await state.clear()
         return
 
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
     date_fmt = date_obj.strftime("%d.%m")
-    tm = cb.data[5:]
 
-    # Ответ клиенту
+    # --- ✅ Отправка в Google Apps Script (календарь) ---
+    if CALENDAR_WEBHOOK:
+        try:
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "name": name,
+                    "phone": phone,
+                    "date": date_str,
+                    "time": tm,
+                    "service": service
+                }
+                async with session.post(CALENDAR_WEBHOOK, json=payload) as resp:
+                    result = await resp.json()
+                    if result.get("status") == "ok":
+                        print(f"✅ Событие создано в Google Calendar: {result.get('eventId')}")
+                    else:
+                        print(f"⚠️ Ошибка Google Calendar: {result.get('message')}")
+                        await bot.send_message(ADMIN_CHAT_ID, f"❌ Не удалось добавить в календарь: {name}")
+        except Exception as e:
+            print(f"⚠️ Webhook error: {e}")
+
+    # --- Ответ клиенту и админу ---
     await cb.message.edit_text(
         f"✅ Запись подтверждена!\n\n📅 {date_fmt}\n⏰ {tm}\n💅 {service}\n📍 Аягоз, ул. Актамберды, 23"
     )
     
-    # Уведомление админу
     await bot.send_message(
         ADMIN_CHAT_ID,
         f"🆕 Новая запись!\n👤 {name}\n📱 {phone}\n📅 {date_fmt}\n⏰ {tm}\n💅 {service}"
