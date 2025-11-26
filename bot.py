@@ -1,4 +1,4 @@
-# bot.py — для Render Free Web Service (порт 10000)
+# bot.py — ASEM PODO Telegram Bot (Render Free, Google Form интеграция)
 import asyncio
 import logging
 import os
@@ -12,38 +12,25 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-import os
-import sys
 import aiohttp
 
-CALENDAR_WEBHOOK = "https://script.google.com/macros/s/AKfycbySa51mH3IlUHtuDaQBnPHvzd-ro0ASPMA7uOcfFGpx4_QOcpXdHLZt9ONpK97k-I5B/exec"  # ← ваш URL
+# 🔑 Настройки — замените на свои
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8454009227:AAEV5eAl8L3pxUC_JQa6FI8dsJAZ2yHtdQc")
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "6734540756"))
 
-
-
-
-# ✅ Гарантируем единственный запуск
-if "RUNNING" in os.environ:
-    print("🔁 Бот уже запущен — выход.")
-    sys.exit(0)
-os.environ["RUNNING"] = "1"
-
-# 🔑 Настройки
-BOT_TOKEN = "8454009227:AAHP3Q1HArGgcr519se0Qye4x7eQp4-cjZ4"
-ADMIN_CHAT_ID = 6734540756
-
-# === HTTP сервер для Render (порт 10000) ===
+# === HTTP health server для Render (порт 10000) ===
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/healthz":
             self.send_response(200)
-            self.send_header("Content-type", "application/json")
+            self.send_header("Content-type", "text/plain")
             self.end_headers()
-            self.wfile.write(b'{"status":"ok","bot":"running"}')
+            self.wfile.write(b"OK")
         else:
             self.send_response(404)
             self.end_headers()
-    
-    def do_HEAD(self):  # ← добавьте этот метод
+
+    def do_HEAD(self):
         if self.path == "/healthz":
             self.send_response(200)
             self.end_headers()
@@ -56,11 +43,37 @@ def run_http_server():
     server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
     server.serve_forever()
 
-# Запускаем HTTP-сервер в фоновом потоке
+# Запускаем HTTP-сервер в фоне
 threading.Thread(target=run_http_server, daemon=True).start()
 print(f"✅ HTTP health server running on port {os.getenv('PORT', 10000)}")
 
-# === Основной бот (aiogram polling) ===
+# === Google Form настройки ===
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfA9agctAXbg3897M0N2aSGAy1BQOBc8zUJuNtuXj_JMUvHUw/formResponse"
+ENTRY_NAME = "entry.132870387"
+ENTRY_PHONE = "entry.575255472"
+ENTRY_DATE = "entry.1710731650"
+ENTRY_TIME = "entry.1012362732"
+ENTRY_SERVICE = "entry.1464244049"
+
+async def send_to_google_form(name, phone, date_str, time_str, service):
+    try:
+        form_data = {
+            ENTRY_NAME: name,
+            ENTRY_PHONE: phone,
+            ENTRY_DATE: date_str,
+            ENTRY_TIME: time_str,
+            ENTRY_SERVICE: service
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(FORM_URL, data=form_data) as resp:
+                if resp.status == 200:
+                    print("✅ Данные отправлены в Google Таблицу")
+                else:
+                    print(f"⚠️ Google Form error: {resp.status}")
+    except Exception as e:
+        print(f"⚠️ Google Form exception: {e}")
+
+# === Основной бот ===
 TIMEZONE = pytz.timezone("Asia/Almaty")
 WORKING_HOURS = {
     "mon": (time(10, 0), time(20, 0)),
@@ -99,7 +112,6 @@ def get_times_kb(date_str):
         return None
     start, end = hours
     slots = []
-    # ✅ Сделать current aware:
     current = TIMEZONE.localize(datetime.combine(day.date(), start))
     end_dt = TIMEZONE.localize(datetime.combine(day.date(), end))
     while current < end_dt:
@@ -173,12 +185,12 @@ async def day(cb: CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data.startswith("time_"))
 async def time(cb: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    if not data:
+    # ✅ Исправлено: if not data
+    if not 
         await cb.message.answer("⚠️ Сессия устарела. Начните с /start.")
         await state.clear()
         return
 
-    # --- Получение данных ---
     service = data.get("service", "не указана")
     name = data.get("name", "—")
     phone = data.get("phone", "—")
@@ -190,40 +202,23 @@ async def time(cb: CallbackQuery, state: FSMContext):
         await state.clear()
         return
 
+    # ✅ Отправка в Google Form
+    await send_to_google_form(name, phone, date_str, tm, service)
+
+    # Ответ клиенту
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
     date_fmt = date_obj.strftime("%d.%m")
-
-    # --- ✅ Отправка в Google Apps Script (календарь) ---
-    if CALENDAR_WEBHOOK:
-        try:
-            async with aiohttp.ClientSession() as session:
-                payload = {
-                    "name": name,
-                    "phone": phone,
-                    "date": date_str,
-                    "time": tm,
-                    "service": service
-                }
-                async with session.post(CALENDAR_WEBHOOK, json=payload) as resp:
-                    result = await resp.json()
-                    if result.get("status") == "ok":
-                        print(f"✅ Событие создано в Google Calendar: {result.get('eventId')}")
-                    else:
-                        print(f"⚠️ Ошибка Google Calendar: {result.get('message')}")
-                        await bot.send_message(ADMIN_CHAT_ID, f"❌ Не удалось добавить в календарь: {name}")
-        except Exception as e:
-            print(f"⚠️ Webhook error: {e}")
-
-    # --- Ответ клиенту и админу ---
     await cb.message.edit_text(
         f"✅ Запись подтверждена!\n\n📅 {date_fmt}\n⏰ {tm}\n💅 {service}\n📍 Аягоз, ул. Актамберды, 23"
     )
     
+    # Уведомление админу
     await bot.send_message(
         ADMIN_CHAT_ID,
         f"🆕 Новая запись!\n👤 {name}\n📱 {phone}\n📅 {date_fmt}\n⏰ {tm}\n💅 {service}"
     )
     await state.clear()
+
 @dp.callback_query(F.data == "contact")
 async def contact(cb: CallbackQuery):
     text = (
@@ -239,10 +234,14 @@ async def contact(cb: CallbackQuery):
     ])
     await cb.message.edit_text(text, parse_mode="Markdown", reply_markup=kb)
 
+# === Запуск ===
 async def main():
     logging.basicConfig(level=logging.INFO)
     print("✅ Telegram bot started. Polling...")
-    await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
+    await dp.start_polling(
+        bot,
+        allowed_updates=["message", "callback_query"]
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
