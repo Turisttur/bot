@@ -15,7 +15,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 import aiohttp
 
 # 🔑 Настройки — замените на свои
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8454009227:AAEV5eAl8L3pxUC_JQa6FI8dsJAZ2yHtdQc")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8454009227:AAHP3Q1HArGgcr519se0Qye4x7eQp4-cjZ4")
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "6734540756"))
 
 # === HTTP health server для Render (порт 10000) ===
